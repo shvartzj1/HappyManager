@@ -12,6 +12,7 @@
 		AAA00003 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB00003; };
 		AAA00004 /* ProcessManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB00004; };
 		AAA00005 /* TerminalWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB00007; };
+		AAA00006 /* SwiftTerm in Frameworks */ = {isa = PBXBuildFile; productRef = PKG00002 /* SwiftTerm */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AAA00006 /* SwiftTerm in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -82,6 +84,9 @@
 			dependencies = (
 			);
 			name = HappyManager;
+			packageProductDependencies = (
+				PKG00002 /* SwiftTerm */,
+			);
 			productName = HappyManager;
 			productReference = CCC00001 /* HappyManager.app */;
 			productType = "com.apple.product-type.application";
@@ -105,6 +110,9 @@
 				Base,
 			);
 			mainGroup = EEE00001;
+			packageReferences = (
+				PKG00001 /* XCRemoteSwiftPackageReference "SwiftTerm" */,
+			);
 			productRefGroup = EEE00003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -329,6 +337,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		PKG00001 /* XCRemoteSwiftPackageReference "SwiftTerm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/migueldeicaza/SwiftTerm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.2.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		PKG00002 /* SwiftTerm */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = PKG00001 /* XCRemoteSwiftPackageReference "SwiftTerm" */;
+			productName = SwiftTerm;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 	};
 	rootObject = HHH00001 /* Project object */;

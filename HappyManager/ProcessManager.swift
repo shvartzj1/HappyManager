@@ -293,10 +293,10 @@ class ProcessManager: ObservableObject {
         var masterFd: Int32 = 0
         var slaveFd: Int32 = 0
 
-        // Set up terminal size (wider for Claude Code, but not too large)
+        // Set up terminal size (wide for Claude Code)
         var winSize = winsize()
-        winSize.ws_row = 40
-        winSize.ws_col = 120
+        winSize.ws_row = 50
+        winSize.ws_col = 160
         winSize.ws_xpixel = 0
         winSize.ws_ypixel = 0
 
@@ -318,8 +318,8 @@ class ProcessManager: ObservableObject {
         var env = ProcessInfo.processInfo.environment
         env["TERM"] = "xterm-256color"
         env["HOME"] = NSHomeDirectory()
-        env["COLUMNS"] = "120"
-        env["LINES"] = "40"
+        env["COLUMNS"] = "160"
+        env["LINES"] = "50"
         let nvmNodePath = "\(NSHomeDirectory())/.nvm/versions/node/v24.3.0/bin"
         if let existingPath = env["PATH"] {
             env["PATH"] = "\(nvmNodePath):\(existingPath)"
@@ -525,5 +525,20 @@ class ProcessManager: ObservableObject {
 
     var totalCount: Int {
         statuses.count
+    }
+
+    // Write input to PTY for an instance
+    func writeToInstance(instanceId: UUID, data: Data) {
+        guard let masterFd = masterFds[instanceId] else { return }
+        data.withUnsafeBytes { buffer in
+            if let ptr = buffer.baseAddress {
+                _ = write(masterFd, ptr, buffer.count)
+            }
+        }
+    }
+
+    // Get the master file descriptor for an instance (for direct access if needed)
+    func getMasterFd(instanceId: UUID) -> Int32? {
+        return masterFds[instanceId]
     }
 }

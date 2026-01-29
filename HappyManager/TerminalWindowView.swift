@@ -1,89 +1,79 @@
 import SwiftUI
+import SwiftTerm
 import Combine
 
-class TerminalViewModel: ObservableObject {
+// NSViewRepresentable wrapper for SwiftTerm's TerminalView
+struct SwiftTermView: NSViewRepresentable {
     let instanceId: UUID
-    @Published var strippedOutput: String = ""
-    @Published var byteCount: Int = 0
+    @ObservedObject var processManager: ProcessManager
 
-    private var cancellable: AnyCancellable?
-    private var lastRawLength: Int = 0
-    private static let ansiRegex: NSRegularExpression? = {
-        let pattern = "\u{001B}\\[[0-9;]*[a-zA-Z]|\u{001B}\\][^\u{007}]*\u{007}|\u{001B}[()][AB012]|\u{001B}=[0-9]*"
-        return try? NSRegularExpression(pattern: pattern, options: [])
-    }()
+    func makeNSView(context: Context) -> TerminalView {
+        let terminalView = TerminalView(frame: .zero)
+        terminalView.configureNativeColors()
 
-    init(instanceId: UUID) {
-        self.instanceId = instanceId
+        // Store reference for updates
+        context.coordinator.terminalView = terminalView
+        context.coordinator.lastLength = 0
 
-        // Observe changes to output buffer with throttling
-        cancellable = ProcessManager.shared.$outputBuffers
-            .throttle(for: .milliseconds(100), scheduler: DispatchQueue.main, latest: true)
-            .sink { [weak self] buffers in
-                guard let self = self else { return }
-                let raw = buffers[instanceId] ?? ""
+        // Feed existing output
+        if let existingData = processManager.outputBuffers[instanceId]?.data(using: .utf8) {
+            terminalView.feed(byteArray: ArraySlice(existingData))
+            context.coordinator.lastLength = existingData.count
+        }
 
-                // Only reprocess if content actually changed
-                if raw.count != self.lastRawLength {
-                    self.lastRawLength = raw.count
-                    self.byteCount = raw.count
-                    self.strippedOutput = Self.stripAnsi(raw)
-                }
-            }
-
-        // Initial load
-        let raw = ProcessManager.shared.outputBuffers[instanceId] ?? ""
-        self.lastRawLength = raw.count
-        self.byteCount = raw.count
-        self.strippedOutput = Self.stripAnsi(raw)
+        return terminalView
     }
 
-    private static func stripAnsi(_ text: String) -> String {
-        guard let regex = ansiRegex else { return text }
-        let range = NSRange(text.startIndex..., in: text)
-        return regex.stringByReplacingMatches(in: text, options: [], range: range, withTemplate: "")
+    func updateNSView(_ terminalView: TerminalView, context: Context) {
+        // Feed new data incrementally
+        guard let fullOutput = processManager.outputBuffers[instanceId],
+              let fullData = fullOutput.data(using: .utf8) else { return }
+
+        let currentLength = fullData.count
+        let lastLength = context.coordinator.lastLength
+
+        if currentLength > lastLength {
+            // Only feed the new data
+            let newData = fullData.suffix(from: lastLength)
+            terminalView.feed(byteArray: ArraySlice(newData))
+            context.coordinator.lastLength = currentLength
+        } else if currentLength < lastLength {
+            // Buffer was truncated (rolling buffer), re-feed everything
+            let terminal = terminalView.getTerminal()
+            terminal.resetToInitialState()
+            terminalView.feed(byteArray: ArraySlice(fullData))
+            context.coordinator.lastLength = currentLength
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    class Coordinator {
+        var terminalView: TerminalView?
+        var lastLength: Int = 0
     }
 }
 
 struct TerminalWindowView: View {
     let instanceId: UUID
     let title: String
-    @StateObject private var viewModel: TerminalViewModel
     @ObservedObject var processManager = ProcessManager.shared
-    @State private var autoScroll = true
-
-    init(instanceId: UUID, title: String) {
-        self.instanceId = instanceId
-        self.title = title
-        self._viewModel = StateObject(wrappedValue: TerminalViewModel(instanceId: instanceId))
-    }
 
     var isRunning: Bool {
         processManager.statuses[instanceId]?.isRunning ?? false
     }
 
+    var byteCount: Int {
+        processManager.outputBuffers[instanceId]?.count ?? 0
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Terminal output
-            ScrollViewReader { proxy in
-                ScrollView {
-                    Text(viewModel.strippedOutput.isEmpty ? "Waiting for output..." : viewModel.strippedOutput)
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundColor(viewModel.strippedOutput.isEmpty ? .gray : .green)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .textSelection(.enabled)
-                        .id("bottom")
-                }
-                .background(Color.black)
-                .onChange(of: viewModel.strippedOutput) { _ in
-                    if autoScroll {
-                        withAnimation(.easeOut(duration: 0.1)) {
-                            proxy.scrollTo("bottom", anchor: .bottom)
-                        }
-                    }
-                }
-            }
+            // Terminal view
+            SwiftTermView(instanceId: instanceId, processManager: processManager)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             // Status bar
             HStack {
@@ -97,11 +87,7 @@ struct TerminalWindowView: View {
 
                 Spacer()
 
-                Toggle("Auto-scroll", isOn: $autoScroll)
-                    .toggleStyle(.checkbox)
-                    .controlSize(.small)
-
-                Text("\(viewModel.byteCount) bytes")
+                Text("\(byteCount) bytes")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .monospacedDigit()
@@ -110,6 +96,6 @@ struct TerminalWindowView: View {
             .padding(.vertical, 8)
             .background(Color(NSColor.windowBackgroundColor))
         }
-        .frame(minWidth: 600, minHeight: 400)
+        .frame(minWidth: 900, minHeight: 500)
     }
 }

@@ -65,14 +65,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let hostingController = NSHostingController(rootView: view)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 800, height: 500),
+            contentRect: NSRect(x: 0, y: 0, width: 1200, height: 700),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.contentViewController = hostingController
         window.title = title
-        window.minSize = NSSize(width: 400, height: 300)
+        window.minSize = NSSize(width: 900, height: 500)
         window.delegate = self
         window.center()
         window.makeKeyAndOrderFront(self)
